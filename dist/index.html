@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+        let url;
+        if(window.location.href.includes("github") && !window.location.href.includes("dist/index.html"))
+        {
+          url = window.location.href+"dist/index.html"
+          const meta = `<meta http-equiv="refresh" content="0; URL=${url}">`;
+          document.head.innerHTML+= meta;
+        }
+    </script> 
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Threejs Galaxy</title>
+    <script type="module" crossorigin src="./assets/index-94c1ab5c.js"></script>
+    <link rel="stylesheet" href="./assets/index-4528fa31.css">
+  </head>
+  <body>
+      <canvas class="webgl"></canvas>
+    
+  </body>
+</html>

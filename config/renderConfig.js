@@ -11,8 +11,8 @@ export const BLOOM_LAYER = 1
 export const OVERLAY_LAYER = 2
 
 export const BLOOM_PARAMS = {
-    exposure: 1,
-    bloomStrength: 1.5,
-    bloomThreshold: 0.4,
-    bloomRadius: 0
+    exposure: 0.1,
+    bloomStrength: 0.8,
+    bloomThreshold: 0.01,
+    bloomRadius: 0.01
 };

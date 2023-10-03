@@ -8,6 +8,7 @@ import { gaussianRandom, spiral } from './utils.js';
 import { Haze } from './objects/haze.js';
 import { CompositionShader} from './shaders/CompositionShader.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
@@ -17,8 +18,8 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
  * Galaxy
  */
 const parameters = {}
-parameters.count = 10000
-parameters.size = 0.01
+parameters.count = 25000
+parameters.size = 1
 parameters.radius = 10
 parameters.branches = 2
 parameters.spin = 1.5
@@ -27,10 +28,19 @@ parameters.randomnessPower = 1.7
 parameters.insideColor = '#eb3700'
 parameters.outsideColor = '#99edf7'
 
-let canvas, renderer, scene, camera, orbit, bloomComposer, overlayComposer, baseComposer, controls 
-let geometry = null
-let material = null
-let points = null
+let points,
+    geometry,
+    material,
+    canvas,
+    renderer,
+    scene,
+    camera,
+    orbit,
+    composer,
+    bloomComposer,
+    overlayComposer,
+    baseComposer,
+    controls 
 
 const generateGalaxy = ( ) =>
 {
@@ -39,38 +49,45 @@ const generateGalaxy = ( ) =>
      */
     geometry = new THREE.BufferGeometry()
     
-    const positions = new Float32Array(parameters.count * 3)
+    const positionsTmp = []
     const colors = new Float32Array(parameters.count * 3)
 
     const colorInside = new THREE.Color(parameters.insideColor)
     const colorOutside = new THREE.Color(parameters.outsideColor)
 
     
-    for(let i = 0; i < parameters.count; i++)
+    for(let i = 0; i < parameters.count / 4 ; i++)
     {
-        const i3 = i * 3
-
-        //Position
-        // const radius = Math.random() * parameters.radius
-        // const spinAngle = radius * parameters.spin
-        // const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2
- 
-        // const randomX = gaussianRandom(0, CORE_X_DIST)
-        // const randomY = gaussianRandom(0, CORE_Y_DIST)
-        // const randomZ =  gaussianRandom(0, GALAXY_THICKNESS)
-        
-        positions[i3    ] =  gaussianRandom(0, CORE_X_DIST)
-        positions[i3 + 1] = gaussianRandom(0, CORE_Y_DIST)
-        positions[i3 + 2] = gaussianRandom(0, GALAXY_THICKNESS)
-
-        //Color
-        // const mixedColor = colorInside.clone()
-
-        // colors[i3    ] = mixedColor.r
-        // colors[i3 + 1] = mixedColor.g
-        // colors[i3 + 2] = mixedColor.b
+        positionsTmp.push( gaussianRandom(0, CORE_X_DIST))
+        positionsTmp.push( gaussianRandom(0, CORE_Y_DIST))
+        positionsTmp.push( gaussianRandom(0, GALAXY_THICKNESS))
     }
+    for(let i = 0; i < parameters.count / 4 ; i++)
+    {
+        positionsTmp.push( gaussianRandom(0, OUTER_CORE_X_DIST))
+        positionsTmp.push( gaussianRandom(0, OUTER_CORE_Y_DIST))
+        positionsTmp.push( gaussianRandom(0, GALAXY_THICKNESS))
+    }
+    for (let j = 0; j < ARMS; j++) {
+        for ( let i = 0; i < parameters.count / 4; i++){
+            let pos = spiral(gaussianRandom(ARM_X_MEAN, ARM_X_DIST), gaussianRandom(ARM_Y_MEAN, ARM_Y_DIST), gaussianRandom(0, GALAXY_THICKNESS), j * 2 * Math.PI / ARMS)
+            positionsTmp.push(pos.x) 
+            positionsTmp.push(pos.y) 
+            positionsTmp.push(pos.z) 
+        }
+    }
+    const positions = new Float32Array(positionsTmp.length)
+    for ( let i = 0; i < positionsTmp.length; i++)
+    {
+        positions[i] = positionsTmp[i];
+    }
+    //Color
+    // const mixedColor = colorInside.clone()
 
+    // colors[i3    ] = mixedColor.r
+    // colors[i3 + 1] = mixedColor.g
+    // colors[i3 + 2] = mixedColor.b
+    console.log("positions", positions);
 
     geometry.setAttribute(
         'position',
@@ -82,7 +99,7 @@ const generateGalaxy = ( ) =>
             new THREE.BufferAttribute(colors, 3)
             )
 
-        
+    const spriteTexture = new THREE.TextureLoader().load( './resources/sprite120.png' );    
     /**
      * Material
      */
@@ -91,15 +108,17 @@ const generateGalaxy = ( ) =>
         sizeAttenuation: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        vertexColors: true,
-        color:0xFFFFFF
+        // vertexColors: true,
+        // color:0xFFFFFF,
+        alphaMap: spriteTexture,
+        transparent: true,
     })
         
     /**
     * Points
     */
    points = new THREE.Points(geometry, material)
-   points.layers.set(BLOOM_LAYER)
+   console.log(points, "points");
    scene.add(points)
         
     }
@@ -132,53 +151,28 @@ function initRender() {
     renderer = new THREE.WebGLRenderer({
         antialias: true,
         canvas,
-        logarithmicDepthBuffer: true,
+        // logarithmicDepthBuffer: true,
     })
     renderer.setPixelRatio( window.devicePixelRatio )
     renderer.setSize( window.innerWidth, window.innerHeight )
     renderer.outputEncoding = THREE.sRGBEncoding
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.5
+    renderer.toneMapping = THREE.ReinhardToneMapping;
 
-    // General-use rendering pass for chaining
-    const renderScene = new RenderPass( scene, camera )
+    const renderScene = new RenderPass( scene, camera );
 
-    // Rendering pass for bloom
-    const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 )
-    bloomPass.threshold = BLOOM_PARAMS.bloomThreshold
-    bloomPass.strength = BLOOM_PARAMS.bloomStrength
-    bloomPass.radius = BLOOM_PARAMS.bloomRadius
+    const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.5, 0.1, 0.85 );
+    bloomPass.threshold = BLOOM_PARAMS.bloomThreshold;
+    bloomPass.strength = BLOOM_PARAMS.bloomStrength;
+    bloomPass.radius = BLOOM_PARAMS.bloomRadius;
 
-    // bloom composer
-    bloomComposer = new EffectComposer(renderer)
-    bloomComposer.renderToScreen = false
-    bloomComposer.addPass(renderScene)
-    bloomComposer.addPass(bloomPass)
+    // const outputPass = new OutputPass();
 
-    // overlay composer
-    overlayComposer = new EffectComposer(renderer)
-    overlayComposer.renderToScreen = false
-    overlayComposer.addPass(renderScene)
-
-    // Shader pass to combine base layer, bloom, and overlay layers
-    const finalPass = new ShaderPass(
-        new THREE.ShaderMaterial( {
-            uniforms: {
-                baseTexture: { value: null },
-                bloomTexture: { value: bloomComposer.renderTarget2.texture },
-                overlayTexture: { value: overlayComposer.renderTarget2.texture }
-            },
-            vertexShader: CompositionShader.vertex,
-            fragmentShader: CompositionShader.fragment,
-            defines: {}
-        } ), 'baseTexture'
-    );
-    finalPass.needsSwap = true;
-
-    // base layer composer
-    baseComposer = new EffectComposer( renderer )
-    baseComposer.addPass( renderScene )
-    baseComposer.addPass(finalPass)
+    composer = new EffectComposer( renderer );
+    composer.addPass( renderScene );
+    composer.addPass( bloomPass );
+    // composer.addPass( outputPass );
 }
 function init()
 {
@@ -197,6 +191,7 @@ function init()
     // );
     // scene.background = environmentMapTexture;
     scene = new THREE.Scene();
+    scene.add( new THREE.AmbientLight( 0xcccccc  ) );
     scene.fog = new THREE.FogExp2(0xEBE2DB, 0.00003);
 
     // camera
@@ -204,6 +199,9 @@ function init()
     camera.position.set(0, 500, 500);
     camera.up.set(0, 0, 1);
     camera.lookAt(0, 0, 0);
+
+    const pointLight = new THREE.PointLight( 0xffffff, 1 );
+    camera.add( pointLight );
 
     // map orbit
     orbit = new MapControls(camera, canvas)
@@ -219,17 +217,17 @@ function init()
 function renderPipeline() {
 
     // Render bloom
-    camera.layers.set(BLOOM_LAYER)
-    bloomComposer.render()
+    // camera.layers.set(BLOOM_LAYER)
+    // bloomComposer.render()
 
     // Render overlays
-    camera.layers.set(OVERLAY_LAYER)
-    overlayComposer.render()
+    // camera.layers.set(OVERLAY_LAYER)
+    // overlayComposer.render()
 
     // Render normal
-    camera.layers.set(BASE_LAYER)
-    baseComposer.render()
-
+    // camera.layers.set(BASE_LAYER)
+    composer.render();
+    // renderer.render(scene, camera)
 }
 function resizeRendererToDisplaySize(renderer) {
     const canvas = renderer.domElement;
@@ -262,10 +260,9 @@ async function render() {
     camera.aspect = canvas.clientWidth / canvas.clientHeight;
     camera.updateProjectionMatrix();
     const elapsedTime = clock.getElapsedTime()
-    
+    points.rotation.z = elapsedTime * 0.05
     // galaxy.updateScale(camera)
 
-    // Run each pass of the render pipeline
     renderPipeline()
 
     requestAnimationFrame(render)
