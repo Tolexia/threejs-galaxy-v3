@@ -28,8 +28,14 @@ parameters.randomnessPower = 1.7
 parameters.insideColor = '#eb3700'
 parameters.outsideColor = '#99edf7'
 
-let points,
+let 
+    points,
+    pointsIndexed,
+    pointsIndexedOffset,
+    pointclouds,
     geometry,
+    geometryIndexed,
+    geometryIndexedWithOffset,
     material,
     canvas,
     renderer,
@@ -42,7 +48,11 @@ let points,
     baseComposer,
     controls,
     raycaster,
-    pointer
+    pointer,
+    sphere,
+    isClicking,
+    positions,
+    positionsInit
 
 const generateGalaxy = ( ) =>
 {
@@ -50,6 +60,8 @@ const generateGalaxy = ( ) =>
      * Geometry
      */
     geometry = new THREE.BufferGeometry()
+    geometryIndexed = new THREE.BufferGeometry()
+    geometryIndexedWithOffset = new THREE.BufferGeometry()
     
     const positionsTmp = []
     const colors = new Float32Array(parameters.count * 3)
@@ -78,11 +90,16 @@ const generateGalaxy = ( ) =>
             positionsTmp.push(pos.z) 
         }
     }
-    const positions = new Float32Array(positionsTmp.length)
+    const indices = new Uint16Array( positionsTmp.length );
+    const indicesWithOffset = new Uint16Array( positionsTmp.length );
+    positions = new Float32Array(positionsTmp.length)
     for ( let i = 0; i < positionsTmp.length; i++)
     {
         positions[i] = positionsTmp[i];
+        indices[i] = i;
+        indicesWithOffset[i] = i;
     }
+    positionsInit = Object.assign({}, positions);
     //Color
     // const mixedColor = colorInside.clone()
 
@@ -91,15 +108,16 @@ const generateGalaxy = ( ) =>
     // colors[i3 + 2] = mixedColor.b
     console.log("positions", positions);
 
-    geometry.setAttribute(
-        'position',
-        new THREE.BufferAttribute(positions, 3)
-        )
+    geometry.setAttribute( 'position', new THREE.BufferAttribute(positions, 3) )
+    geometryIndexed.setAttribute( 'position', new THREE.BufferAttribute(positions, 3) )
+    geometryIndexedWithOffset.setAttribute( 'position', new THREE.BufferAttribute(positions, 3) )
 
-    geometry.setAttribute(
-            'color',
-            new THREE.BufferAttribute(colors, 3)
-            )
+    geometryIndexed.setIndex( new THREE.BufferAttribute( indices, 1 ) );
+    geometryIndexedWithOffset.setIndex( new THREE.BufferAttribute( indicesWithOffset, 1 ) );
+     
+    geometryIndexedWithOffset.addGroup( 0, indicesWithOffset.length );
+
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3) )
 
     const spriteTexture = new THREE.TextureLoader().load( './resources/sprite120.png' );    
     /**
@@ -120,10 +138,13 @@ const generateGalaxy = ( ) =>
     * Points
     */
    points = new THREE.Points(geometry, material)
-   console.log(points, "points");
+   pointsIndexed = new THREE.Points(geometry, material)
+   pointsIndexedOffset = new THREE.Points(geometry, material)
    scene.add(points)
-        
-    }
+   scene.add(points)
+   scene.add(points)
+   pointclouds = [ points, pointsIndexed, pointsIndexedOffset ];
+}
     
 /**
  * Sizes
@@ -216,23 +237,19 @@ function init()
 
     raycaster = new THREE.Raycaster()
     pointer = new THREE.Vector2()
+    const sphereGeometry = new THREE.SphereGeometry( 1, 32, 32 );
+    // const sphereMaterial = new THREE.MeshBasicMaterial( { transparent:true, opacity:1 } );
+    const sphereMaterial = new THREE.MeshBasicMaterial( { color:0xffffff} );
+    sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
+    scene.add( sphere );
 
     initRender()
 }
+window.addEventListener('pointerdown', e => isClicking = true)
+window.addEventListener('pointerup', e => isClicking = false)
 window.addEventListener('pointermove', (event) => {
     pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-        // update the picking ray with the camera and pointer position
-	// raycaster.setFromCamera( pointer, camera );
-
-	// calculate objects intersecting the picking ray
-	// const intersects = raycaster.intersectObjects( scene.children );
-
-    // console.log("intersects", intersects);
-	// for ( let i = 0; i < intersects.length; i ++ ) 
-    // {
-		// intersects[ i ].object.material.color.set( 0xfff );
-	// }
 })
 function renderPipeline() {
 
@@ -284,7 +301,21 @@ async function render() {
     // galaxy.updateScale(camera)
 
     // Raycaster
+    // update the picking ray with the camera and pointer position
+    raycaster.setFromCamera( pointer, camera );
 
+    const intersections = raycaster.intersectObjects( pointclouds, false );
+    const intersection = ( intersections.length ) > 0 ? intersections[ 0 ] : null;
+    if ( intersection !== null && isClicking == true) 
+    {
+        console.log("intersection.point", intersection.point);
+        sphere.position.copy( intersection.point );
+        sphere.scale.set( 10, 10, 10 );
+    }
+    // else
+    // {
+    //     sphere.position.copy( new THREE.Vector3(0,0,0));
+    // }
 
     // Run each pass of the render pipeline
     renderPipeline()
