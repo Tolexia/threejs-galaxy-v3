@@ -40,7 +40,9 @@ let points,
     bloomComposer,
     overlayComposer,
     baseComposer,
-    controls 
+    controls,
+    raycaster,
+    pointer
 
 const generateGalaxy = ( ) =>
 {
@@ -212,8 +214,26 @@ function init()
     orbit.maxDistance = 16384;
     orbit.maxPolarAngle = (Math.PI / 2) - (Math.PI / 360)
 
+    raycaster = new THREE.Raycaster()
+    pointer = new THREE.Vector2()
+
     initRender()
 }
+window.addEventListener('pointermove', (event) => {
+    pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+    pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+        // update the picking ray with the camera and pointer position
+	// raycaster.setFromCamera( pointer, camera );
+
+	// calculate objects intersecting the picking ray
+	// const intersects = raycaster.intersectObjects( scene.children );
+
+    // console.log("intersects", intersects);
+	// for ( let i = 0; i < intersects.length; i ++ ) 
+    // {
+		// intersects[ i ].object.material.color.set( 0xfff );
+	// }
+})
 function renderPipeline() {
 
     // Render bloom
@@ -263,6 +283,10 @@ async function render() {
     points.rotation.z = elapsedTime * 0.05
     // galaxy.updateScale(camera)
 
+    // Raycaster
+
+
+    // Run each pass of the render pipeline
     renderPipeline()
 
     requestAnimationFrame(render)
