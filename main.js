@@ -52,7 +52,8 @@ let
     sphere,
     isClicking,
     positions,
-    positionsInit
+    positionsInit,
+    attributes
 
 const generateGalaxy = ( ) =>
 {
@@ -138,12 +139,14 @@ const generateGalaxy = ( ) =>
     * Points
     */
    points = new THREE.Points(geometry, material)
-   pointsIndexed = new THREE.Points(geometry, material)
-   pointsIndexedOffset = new THREE.Points(geometry, material)
+//    pointsIndexed = new THREE.Points(geometry, material)
+//    pointsIndexedOffset = new THREE.Points(geometry, material)
    scene.add(points)
-   scene.add(points)
-   scene.add(points)
-   pointclouds = [ points, pointsIndexed, pointsIndexedOffset ];
+//    scene.add(pointsIndexed)
+//    scene.add(pointsIndexedOffset)
+   pointclouds = [points];
+   attributes = points.geometry.attributes
+   console.log("attributes", attributes);
 }
     
 /**
@@ -306,11 +309,18 @@ async function render() {
 
     const intersections = raycaster.intersectObjects( pointclouds, false );
     const intersection = ( intersections.length ) > 0 ? intersections[ 0 ] : null;
-    if ( intersection !== null && isClicking == true) 
+    // if ( intersection !== null && isClicking == true) 
+    if ( intersection !== null) 
     {
+        console.log("intersection", intersection);
         console.log("intersection.point", intersection.point);
         sphere.position.copy( intersection.point );
         sphere.scale.set( 10, 10, 10 );
+        console.log("attributes.color.array[intersection.index]", attributes.color.array[intersection.index]);
+        attributes.color.array[intersection.index] = 0x00ff0f
+        attributes.color.array[intersection.index+1] = 0x00ff0f
+        attributes.color.array[intersection.index+2] = 0x00ff0f
+        attributes.color.needsUpdate = true;
     }
     // else
     // {
