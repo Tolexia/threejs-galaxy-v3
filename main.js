@@ -53,7 +53,11 @@ let
     isClicking,
     positions,
     positionsInit,
-    attributes
+    colors,
+    sizes,
+    intersects,
+    INTERSECTED,
+    vertices
 
 const generateGalaxy = ( ) =>
 {
@@ -61,27 +65,33 @@ const generateGalaxy = ( ) =>
      * Geometry
      */
     geometry = new THREE.BufferGeometry()
-    geometryIndexed = new THREE.BufferGeometry()
-    geometryIndexedWithOffset = new THREE.BufferGeometry()
     
     const positionsTmp = []
-    const colors = new Float32Array(parameters.count * 3)
-
-    const colorInside = new THREE.Color(parameters.insideColor)
-    const colorOutside = new THREE.Color(parameters.outsideColor)
+    colors = new Float32Array(parameters.count * 3)
+    
+    sizes = new Float32Array( parameters.count );
+    vertices = new Array();
 
     
     for(let i = 0; i < parameters.count / 4 ; i++)
     {
-        positionsTmp.push( gaussianRandom(0, CORE_X_DIST))
-        positionsTmp.push( gaussianRandom(0, CORE_Y_DIST))
-        positionsTmp.push( gaussianRandom(0, GALAXY_THICKNESS))
+        let x = gaussianRandom(0, CORE_X_DIST)
+        let y = gaussianRandom(0, CORE_Y_DIST)
+        let z = gaussianRandom(0, GALAXY_THICKNESS)
+        positionsTmp.push( x )
+        positionsTmp.push( y )
+        positionsTmp.push( z )
+        vertices.push(new THREE.Vector3(x, y, z))
     }
     for(let i = 0; i < parameters.count / 4 ; i++)
     {
-        positionsTmp.push( gaussianRandom(0, OUTER_CORE_X_DIST))
-        positionsTmp.push( gaussianRandom(0, OUTER_CORE_Y_DIST))
-        positionsTmp.push( gaussianRandom(0, GALAXY_THICKNESS))
+        let x = gaussianRandom(0, OUTER_CORE_X_DIST)
+        let y = gaussianRandom(0, OUTER_CORE_Y_DIST)
+        let z = gaussianRandom(0, GALAXY_THICKNESS)
+        positionsTmp.push(x)
+        positionsTmp.push(y)
+        positionsTmp.push(z)
+        vertices.push(new THREE.Vector3(x, y, z))
     }
     for (let j = 0; j < ARMS; j++) {
         for ( let i = 0; i < parameters.count / 4; i++){
@@ -89,83 +99,80 @@ const generateGalaxy = ( ) =>
             positionsTmp.push(pos.x) 
             positionsTmp.push(pos.y) 
             positionsTmp.push(pos.z) 
+            vertices.push(new THREE.Vector3(pos.x, pos.y, pos.z))
         }
     }
-    const indices = new Uint16Array( positionsTmp.length );
-    const indicesWithOffset = new Uint16Array( positionsTmp.length );
     positions = new Float32Array(positionsTmp.length)
+
     for ( let i = 0; i < positionsTmp.length; i++)
     {
+        // Position
         positions[i] = positionsTmp[i];
-        indices[i] = i;
-        indicesWithOffset[i] = i;
+
+        //Color
+        let color = new THREE.Color( 0xffffff )
+        color.toArray( colors, i * 3 );
+
+        // Size
+        sizes[i] = parameters.size;
     }
     positionsInit = Object.assign({}, positions);
-    //Color
-    // const mixedColor = colorInside.clone()
-
-    // colors[i3    ] = mixedColor.r
-    // colors[i3 + 1] = mixedColor.g
-    // colors[i3 + 2] = mixedColor.b
-    console.log("positions", positions);
 
     geometry.setAttribute( 'position', new THREE.BufferAttribute(positions, 3) )
-    geometryIndexed.setAttribute( 'position', new THREE.BufferAttribute(positions, 3) )
-    geometryIndexedWithOffset.setAttribute( 'position', new THREE.BufferAttribute(positions, 3) )
-
-    geometryIndexed.setIndex( new THREE.BufferAttribute( indices, 1 ) );
-    geometryIndexedWithOffset.setIndex( new THREE.BufferAttribute( indicesWithOffset, 1 ) );
-     
-    geometryIndexedWithOffset.addGroup( 0, indicesWithOffset.length );
-
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3) )
+    geometry.setAttribute( 'customColor', new THREE.BufferAttribute( colors, 3 ) );
+    geometry.setAttribute( 'size', new THREE.BufferAttribute( sizes, 1 ) );
 
     const spriteTexture = new THREE.TextureLoader().load( './resources/sprite120.png' );    
     /**
      * Material
      */
-     material = new THREE.PointsMaterial({
-        size: parameters.size,
-        sizeAttenuation: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        // vertexColors: true,
-        // color:0xFFFFFF,
-        alphaMap: spriteTexture,
-        transparent: true,
-    })
-        
+    //  material = new THREE.PointsMaterial({
+    //     // size: parameters.size,
+    //     sizeAttenuation: true,
+    //     depthWrite: false,
+    //     blending: THREE.AdditiveBlending,
+    //     // vertexColors: true,
+    //     // color:0xFFFFFF,
+    //     alphaMap: spriteTexture,
+    //     transparent: true,
+    // })
+    material = new THREE.ShaderMaterial( {
+
+        uniforms: {
+            color: { value: new THREE.Color( 0xffffff ) },
+            pointTexture: { value: new THREE.TextureLoader().load( './resources/sprite120.png' ) },
+            alphaTest: { value: 0.9 }
+        },
+        vertexShader: document.getElementById( 'vertexshader' ).textContent,
+        fragmentShader: document.getElementById( 'fragmentshader' ).textContent
+
+    } );
     /**
     * Points
     */
    points = new THREE.Points(geometry, material)
-//    pointsIndexed = new THREE.Points(geometry, material)
-//    pointsIndexedOffset = new THREE.Points(geometry, material)
    scene.add(points)
-//    scene.add(pointsIndexed)
-//    scene.add(pointsIndexedOffset)
-   pointclouds = [points];
-   attributes = points.geometry.attributes
-   console.log("attributes", attributes);
+   pointclouds = points;
+
 }
     
 /**
- * Sizes
+ * global Sizes
  */
-const sizes = {
+const globalSizes = {
     width: window.innerWidth,
     height: window.innerHeight
 }
 
 window.addEventListener('resize', () =>
 {
-    sizes.width = window.innerWidth
-    sizes.height = window.innerHeight
+    globalSizes.width = window.innerWidth
+    globalSizes.height = window.innerHeight
 
-    camera.aspect = sizes.width / sizes.height
+    camera.aspect = globalSizes.width / globalSizes.height
     camera.updateProjectionMatrix()
 
-    renderer.setSize(sizes.width, sizes.height)
+    renderer.setSize(globalSizes.width, globalSizes.height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 })
 /**
@@ -300,27 +307,61 @@ async function render() {
     camera.aspect = canvas.clientWidth / canvas.clientHeight;
     camera.updateProjectionMatrix();
     const elapsedTime = clock.getElapsedTime()
-    points.rotation.z = elapsedTime * 0.05
+    // points.rotation.z = elapsedTime * 0.05
     // galaxy.updateScale(camera)
-
+    const geometry = points.geometry;
+    const attributes = geometry.attributes;
+    let pos = attributes.position;
+    // console.log("attributes", attributes);
+    // let vUv = new THREE.Vector2();
     // Raycaster
     // update the picking ray with the camera and pointer position
     raycaster.setFromCamera( pointer, camera );
+    intersects = raycaster.intersectObject( pointclouds );
 
-    const intersections = raycaster.intersectObjects( pointclouds, false );
+    if ( intersects.length > 0 ) {
+
+        if ( INTERSECTED != intersects[ 0 ].index ) {
+            // console.log("vertices[INTERSECTED]", vertices[INTERSECTED]);
+            // pos.array[ INTERSECTED ] = vertices[INTERSECTED].y;
+
+            INTERSECTED = intersects[ 0 ].index;
+            console.log("intersects[ 0 ]", intersects[ 0 ]);
+            // console.log("pos.array[ INTERSECTED ]", pos.array[ INTERSECTED ]);
+            pos.array[ INTERSECTED ] = vertices[INTERSECTED].z + 0.5;
+
+            pos.needsUpdate = true;
+
+        }
+
+    } else if ( INTERSECTED !== null ) {
+
+        // attributes.size.array[ INTERSECTED ] = parameters.size;
+        // attributes.size.needsUpdate = true;
+        // attributes.position = positionsInit
+        // attributes.position.needsUpdate = true;
+        // INTERSECTED = null;
+    }
+
+    const intersections = raycaster.intersectObject( pointclouds );
     const intersection = ( intersections.length ) > 0 ? intersections[ 0 ] : null;
     // if ( intersection !== null && isClicking == true) 
     if ( intersection !== null) 
     {
-        console.log("intersection", intersection);
-        console.log("intersection.point", intersection.point);
-        sphere.position.copy( intersection.point );
-        sphere.scale.set( 10, 10, 10 );
-        console.log("attributes.color.array[intersection.index]", attributes.color.array[intersection.index]);
-        attributes.color.array[intersection.index] = 0x00ff0f
-        attributes.color.array[intersection.index+1] = 0x00ff0f
-        attributes.color.array[intersection.index+2] = 0x00ff0f
-        attributes.color.needsUpdate = true;
+        // console.log("intersection", intersection);
+        // console.log("intersection.point", intersection.point);
+        // console.log("intersection.index", intersection.index);
+        // sphere.position.copy( intersection.point );
+        // sphere.scale.set( 0.1, 0.1, 0.1 );
+        // console.log("attributes.customColor.array[intersection.index]", attributes.customColor.array[intersection.index]);
+        // attributes.customColor.array[intersection.index] = 0x00ff0f
+        // attributes.customColor.array[intersection.index+1] = 0x00ff0f
+        // attributes.customColor.array[intersection.index+2] = 0x00ff0f
+        // attributes.customColor.needsUpdate = true;
+        // attributes.size.array[ intersection.index ] = parameters.size * 20;
+        // console.log("attributes.size.array[ intersection.index ]", attributes.size.array[ intersection.index ]);
+        // attributes.size.needsUpdate = true;
+
     }
     // else
     // {
